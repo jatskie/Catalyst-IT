@@ -108,7 +108,21 @@ function processUsers($aArrArgumentsContainer)
                     }
                 }
 
-                
+                // check if this is a dry_run
+                if ($boolIsDryRun)
+                {
+                    $intValidData = count($arrUsers);
+                    $intInvalidData = count($arrInvalidData);
+                    $strResult = "
+                        Processing Finished.
+
+                        Valid Data: $intValidData
+                        Invalid Data: $intInvalidData
+
+                    ";
+                    fwrite(STDOUT, $strResult);
+                    return;
+                }
 
                 return;
             }
