@@ -28,8 +28,14 @@ The PHP script should include these command line options (directives):
 */
 
 // Get, parse, validate cli arguments 
-$arrArguments = $argv;
-if (count($arrArguments) == 1)
+
+// Exclude the filename of this script
+array_shift($argv);
+
+$arrArguments = $arrArgumentsContainer = $argv;
+$arrInvalidArg = array();
+
+if (count($arrArguments) == 0)
 {
     fwrite(STDOUT, 'No directives found. You can use --help for valid directives.');
     exit(0);
@@ -37,22 +43,23 @@ if (count($arrArguments) == 1)
 
 while ($strArg = array_shift($arrArguments))
 {
-    var_dump($strArg);
     switch ($strArg)
     {
         case '--file':
+            return processUsers($arrArgumentsContainer);
             break;
         case '--help':
             return showHelpMenu();
             break;
         default:
+            $arrInvalidArg[] = $strArg;
+
             break;
     }
 
     // no more arguments exit loop
     if ($strArg == null)
-    {
-        
+    {        
         exit;
     }
 }
@@ -64,6 +71,98 @@ while ($strArg = array_shift($arrArguments))
 // Validate and Insert data
 
 // Get and parse csv file
+function processUsers($aArrArgumentsContainer)
+{
+    $arrUsers = array();
+    $arrInvalidData = array();
+    $boolIsDryRun = in_array('--dry_run', $aArrArgumentsContainer);
+
+    // find the csv file in the arguments
+    foreach ($aArrArgumentsContainer as $intIndex => $strValue) 
+    {
+        if (substr($strValue, -4) === '.csv')
+        {
+            // check if file exists
+            if (file_exists($strValue))
+            {
+                // convert file into array
+                $objFile = fopen($strValue, 'r');
+                $intLineCtr = 0;
+                while(($line = fgetcsv($objFile)) !== false)
+                {
+                    // skip column labels
+                    if ($intLineCtr == 0)
+                    {
+                        $intLineCtr = 1;
+                        continue;
+                    }
+                    
+                    $mixData = processData($line);
+                    if ($mixData)
+                    {
+                        $arrUsers[] = $mixData;
+                    }
+                    else
+                    {
+                        $arrInvalidData[] = $line;
+                    }
+                }
+
+                
+
+                return;
+            }
+            else
+            {
+                fwrite(STDOUT, 'File does not exist.');
+                return;
+            }
+        }
+    }
+
+    fwrite(STDOUT, 'Please provide a file to be uploaded.');
+}
+
+/**
+ * Check if email is valid
+ * Capitalize Name and Surname
+ * 
+ * @return processed array or false if email is invalid
+ *
+ */
+function processData($aArrCsvLine)
+{
+    if (count($aArrCsvLine) > 3)
+    {
+        return false;
+    }
+
+    foreach ($aArrCsvLine as $intIndex => $strValue)
+    {
+        // remove leading and tail whitespae
+        $strValue = trim($strValue);
+
+        // email column
+        if ($intIndex == 2)
+        {
+            $boolIsEmailValid = filter_var($strValue, FILTER_VALIDATE_EMAIL);
+
+            if (false == $boolIsEmailValid)
+            {
+                return false;
+            }
+            else
+            {
+                $aArrCsvLine[$intIndex] = strtolower($strValue);
+            }
+        }
+
+        // name column
+        $aArrCsvLine[$intIndex] = ucwords(strtolower($strValue));
+    }
+
+    return $aArrCsvLine;
+}
 
 // Display Help Menu
 function showHelpMenu()
