@@ -28,7 +28,34 @@ The PHP script should include these command line options (directives):
 */
 
 // Get, parse, validate cli arguments 
-var_dump($argv);
+$arrArguments = $argv;
+if (count($arrArguments) == 1)
+{
+    fwrite(STDOUT, 'No directives found. You can use --help for valid directives.');
+    exit(0);
+}
+
+while ($strArg = array_shift($arrArguments))
+{
+    var_dump($strArg);
+    switch ($strArg)
+    {
+        case '--file':
+            break;
+        case '--help':
+            return showHelpMenu();
+            break;
+        default:
+            break;
+    }
+
+    // no more arguments exit loop
+    if ($strArg == null)
+    {
+        
+        exit;
+    }
+}
 
 // Make a database connection
 
@@ -39,3 +66,28 @@ var_dump($argv);
 // Get and parse csv file
 
 // Display Help Menu
+function showHelpMenu()
+{
+    $strDirectives = "
+    
+    • --file [csv file name] – this is the name of the CSV to be parsed
+    
+    • --dry_run – this will be used with the --file directive to perform a test run without updating the database
+
+    • --create_table – create the users table. This will fail to execute if table is already existing.
+
+    • --drop_table – delete the users table. Use with extreme caution. Data deleted will no longer be available.  
+    
+    Database Connection [required]
+
+    • -u – MySQL username
+    
+    • -p – MySQL password
+    
+    • -h – MySQL host
+    
+    \033[32me.g. php user_upload.php --file file.csv --dry_run -u=user -p=password -h=localhost\033[37m
+    ";
+
+    fwrite(STDOUT, $strDirectives);
+}
