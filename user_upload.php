@@ -37,8 +37,8 @@ $arrInvalidArg = array();
 
 if (count($arrArguments) == 0)
 {
-    fwrite(STDOUT, 'No directives found. You can use --help for valid directives.');
-    exit(0);
+    recHelp();
+    exit;
 }
 
 while ($strArg = array_shift($arrArguments))
@@ -46,6 +46,9 @@ while ($strArg = array_shift($arrArguments))
     switch ($strArg)
     {
         case '--file':
+            // Initiate the database connection
+            connectDB($arrArgumentsContainer);
+            // process the csv
             return processUsers($arrArgumentsContainer);
             break;
         case '--help':
@@ -53,7 +56,6 @@ while ($strArg = array_shift($arrArguments))
             break;
         default:
             $arrInvalidArg[] = $strArg;
-
             break;
     }
 
@@ -65,7 +67,10 @@ while ($strArg = array_shift($arrArguments))
 }
 
 // Make a database connection
+function connectDB($aArrArgumentsContainer)
+{
 
+}
 // Create user table
 
 // Validate and Insert data
@@ -75,6 +80,7 @@ function processUsers($aArrArgumentsContainer)
 {
     $arrUsers = array();
     $arrInvalidData = array();
+    $arrLineNumber = array();
     $boolIsDryRun = in_array('--dry_run', $aArrArgumentsContainer);
 
     // find the csv file in the arguments
@@ -93,7 +99,7 @@ function processUsers($aArrArgumentsContainer)
                     // skip column labels
                     if ($intLineCtr == 0)
                     {
-                        $intLineCtr = 1;
+                        $intLineCtr++;
                         continue;
                     }
                     
@@ -105,24 +111,34 @@ function processUsers($aArrArgumentsContainer)
                     else
                     {
                         $arrInvalidData[] = $line;
+                        // Adding 1 because of zero-index
+                        $arrLineNumber[] = ($intLineCtr + 1);
                     }
+
+                    $intLineCtr++;
                 }
+                
+                fclose($objFile);
 
                 // check if this is a dry_run
                 if ($boolIsDryRun)
                 {
                     $intValidData = count($arrUsers);
                     $intInvalidData = count($arrInvalidData);
-                    $strResult = "
-                        Processing Finished.
+                    $strCsvLineNumber = implode(', ', $arrLineNumber);
 
+                    $strResult = "
+                        Processing Finished
+                        ---------------------------------------------
                         Valid Data: $intValidData
                         Invalid Data: $intInvalidData
-
+                            Check csv line/s: $strCsvLineNumber
                     ";
                     fwrite(STDOUT, $strResult);
                     return;
                 }
+                
+                // 
 
                 return;
             }
@@ -153,7 +169,7 @@ function processData($aArrCsvLine)
 
     foreach ($aArrCsvLine as $intIndex => $strValue)
     {
-        // remove leading and tail whitespae
+        // remove leading and trailing whitespace
         $strValue = trim($strValue);
 
         // email column
@@ -171,7 +187,7 @@ function processData($aArrCsvLine)
             }
         }
 
-        // name column
+        // name columns
         $aArrCsvLine[$intIndex] = ucwords(strtolower($strValue));
     }
 
@@ -204,3 +220,15 @@ function showHelpMenu()
 
     fwrite(STDOUT, $strDirectives);
 }
+
+// Recommend help when issues are found
+function recHelp($aStrType = 'NO_DIRECTIVES')
+{
+    switch($aStrType)
+    {
+        case 'NO_DIRECTIVES':
+        default:
+            fwrite(STDOUT, 'No directives found. You can use --help for valid directives.');
+            break;
+    }
+} 
