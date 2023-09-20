@@ -34,10 +34,11 @@ array_shift($argv);
 
 $arrArguments = $arrArgumentsContainer = $argv;
 $arrInvalidArg = array();
+$boolInvalidCommandFound = false;
 
 if (count($arrArguments) == 0)
 {
-    recHelp();
+    recHelp('NO_DIRECTIVES');
     exit;
 }
 
@@ -66,14 +67,20 @@ while ($strArg = array_shift($arrArguments))
             break;
         default:
             $arrInvalidArg[] = $strArg;
+            $boolInvalidCommandFound = true;
             break;
     }
 
     // no more arguments exit loop
     if ($strArg == null)
     {        
-        exit;
+        break;
     }
+}
+
+if ($boolInvalidCommandFound)
+{
+    recHelp('INVALID_COMMAND');
 }
 
 /**
@@ -87,7 +94,56 @@ function connectDB($aArrArgumentsContainer)
     $strPassword = "root";
     $strDbname = 'test_db';
     
-
+    foreach ($aArrArgumentsContainer as $intIndex => $strValue)
+    {
+        $arrArgumentData = explode('=', $strValue);
+        switch($arrArgumentData[0])
+        {
+            case '-u':
+                if (isset($arrArgumentData[1]))
+                {
+                    $strUsername = $arrArgumentData[1];
+                }
+                else
+                {
+                    fwrite(STDOUT, "\r\n\r\n        Database username is being set but was empty. Ignoring option. \r\n\r\n");
+                }
+                break;
+            case '-p':
+                if (isset($arrArgumentData[1]))
+                {
+                    $strPassword = $arrArgumentData[1];
+                }
+                else
+                {
+                    fwrite(STDOUT, "\r\n\r\n        Database password is being set but was empty. Ignoring option.\r\n\r\n");
+                }
+                break;
+            case '-h':
+                if (isset($arrArgumentData[1]))
+                {
+                    $strServerName = $arrArgumentData[1];
+                }
+                else
+                {
+                    fwrite(STDOUT, "\r\n\r\n        Database host is being set but was empty. Ignoring option.\r\n\r\n");
+                }
+                break;
+            case '-db':
+                if (isset($arrArgumentData[1]))
+                {
+                    $strDbname = $arrArgumentData[1];
+                }
+                else
+                {
+                    fwrite(STDOUT, "\r\n\r\n        Database name is being set but was empty. Ignoring option.\r\n\r\n");
+                }
+                break;
+            default:
+                break;
+        }
+    }
+    
     try {
         $conn = new PDO("mysql:host=$strServerName; dbname=$strDbname", $strUsername, $strPassword);
         // set the PDO error mode to exception
@@ -113,8 +169,8 @@ function connectDB($aArrArgumentsContainer)
                 break;
         }
 
-        fwrite(STDOUT, "We encountered some issues with the database and cannot continue. \r\n". $strErrorMsg . "\r\n\r\n");
-        recHelp('SHOW_HELP');
+        fwrite(STDOUT, "\r\n\r\n We encountered some issues with the database and cannot continue. \r\n". $strErrorMsg . "\r\n\r\n");
+        recHelp();
 
         // print_r($e);
         // echo $e->getMessage();
@@ -165,10 +221,11 @@ function addUsers($aArrUserData, $aConnection)
 
     } catch (PDOException $e) {
         $aConnection->rollback();
+        
         switch($e->errorInfo[1])
         {
             case 1062:
-                $strErrorMsg = "Duplicate emails found. Some users may already be in the database. Please check your CSV file. \r\n\r\n";
+                $strErrorMsg = "Some users are already be in the database. Please check your CSV file. \r\n\r\n";
                 break;
             case 1146:
             default:
@@ -177,7 +234,7 @@ function addUsers($aArrUserData, $aConnection)
         }
 
         fwrite(STDOUT, $strErrorMsg);
-        recHelp('SHOW_HELP');
+        recHelp();
         exit;
     }
 }
@@ -324,6 +381,8 @@ function showHelpMenu()
     • --dry_run – this will be used with the --file directive to perform a test run without updating the database
 
     • --create_table – create the users table. This will drop the table if it exists.
+
+    • --help – display the help menu.
     
     Database Connection [required]
 
@@ -332,6 +391,8 @@ function showHelpMenu()
     • -p – MySQL password
     
     • -h – MySQL host
+
+    • -db – MySQL database name
     
     \033[32me.g. php user_upload.php --file file.csv --dry_run -u=user -p=password -h=localhost\033[37m
     ";
@@ -343,21 +404,23 @@ function showHelpMenu()
  * Recommend help when issues are found
  * 
  **/
-function recHelp($aStrType = 'NO_DIRECTIVES')
+function recHelp($aStrType = 'SHOW_HELP')
 {
-    $strMsg = '';
     switch($aStrType)
     {
-        case 'SHOW_HELP':
-            $strMsg = 'Use --help to see available commands.';
-            break;
+        case 'INVALID_COMMAND':
+            $strMsg = 'Invalid command.';
+            break;        
         case 'NO_DIRECTIVES':
+            $strMsg = 'No directives found.';
+            break;
+        case 'SHOW_HELP':
         default:
-            $strMsg = 'No directives found. You can use --help for valid directives.';
+            $strMsg = '';
             break;
     }
 
-    fwrite(STDOUT, $strMsg . "\r\n\r\n");
+    fwrite(STDOUT, $strMsg . " Use --help to see available commands.\r\n\r\n");
 } 
 
 /**
