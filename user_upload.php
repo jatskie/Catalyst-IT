@@ -384,7 +384,7 @@ function showHelpMenu()
 
     • --help – display the help menu.
     
-    Database Connection [required]
+    Database Connection [Configurable]
 
     • -u – MySQL username
     
