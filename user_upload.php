@@ -41,18 +41,21 @@ if (count($arrArguments) == 0)
     exit;
 }
 
+// Initiate the database connection
+$conn = connectDB($arrArgumentsContainer);
+
 while ($strArg = array_shift($arrArguments))
 {
     switch ($strArg)
     {
-        case '--file':
-            // Initiate the database connection
-            connectDB($arrArgumentsContainer);
+        case '--file':            
             // process the csv
             return processUsers($arrArgumentsContainer);
             break;
         case '--help':
             return showHelpMenu();
+            break;
+        case '--create_table':
             break;
         default:
             $arrInvalidArg[] = $strArg;
@@ -69,10 +72,62 @@ while ($strArg = array_shift($arrArguments))
 // Make a database connection
 function connectDB($aArrArgumentsContainer)
 {
+    $strServerName = 'localhost';
+    $strUsername = 'root';
+    $strPassword = "root";
+    $strDbname = 'users';
+    
 
+    try {
+        $conn = new PDO("mysql:host=$strServerName; dbname=$strDbname", $strUsername, $strPassword);
+        // set the PDO error mode to exception
+        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        return $conn;
+
+    } catch(PDOException $e) {
+        $intErrorCode = $e->errorInfo[1];
+        switch($intErrorCode)
+        {
+            case 2002:
+                $strErrorMsg = '    - Check that the server name is correct.';
+                break;
+            case 1045:
+                $strErrorMsg = '    - Check that the server\'s username and password is correct.';
+                break;
+            case 1049:
+                $strErrorMsg = '    - Users table not found.';
+                break;
+            default:
+                $strErrorMsg = '    - Something went wrong with the database connection.';
+                break;
+        }
+
+        fwrite(STDOUT, "We encountered some issues with the database and cannot continue. \r\n". $strErrorMsg . "\r\n\r\n");
+        recHelp('SHOW_HELP');
+
+        // print_r($e);
+        // echo $e->getMessage();
+        exit;
+    }
 }
 // Create user table
-
+function createTable($aConnection)
+{
+    // sql to create table
+    $sql = "CREATE TABLE users (
+        id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(30) NOT NULL,
+        surname VARCHAR(30) NOT NULL,
+        email VARCHAR(50) UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )";
+      
+    // use exec() because no results are returned
+    $aConnection->exec($sql);
+    
+    fwrite(STDOUT, 'User table created successfully');
+}
 // Validate and Insert data
 
 // Get and parse csv file
@@ -224,11 +279,17 @@ function showHelpMenu()
 // Recommend help when issues are found
 function recHelp($aStrType = 'NO_DIRECTIVES')
 {
+    $strMsg = '';
     switch($aStrType)
     {
+        case 'SHOW_HELP':
+            $strMsg = 'Use --help to see available commands.';
+            break;
         case 'NO_DIRECTIVES':
         default:
-            fwrite(STDOUT, 'No directives found. You can use --help for valid directives.');
+            $strMsg = 'No directives found. You can use --help for valid directives.';
             break;
     }
+
+    fwrite(STDOUT, $strMsg . "\r\n\r\n");
 } 
