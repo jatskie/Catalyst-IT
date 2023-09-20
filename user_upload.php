@@ -56,6 +56,7 @@ while ($strArg = array_shift($arrArguments))
             return showHelpMenu();
             break;
         case '--create_table':
+            return createTable($conn);
             break;
         default:
             $arrInvalidArg[] = $strArg;
@@ -75,7 +76,7 @@ function connectDB($aArrArgumentsContainer)
     $strServerName = 'localhost';
     $strUsername = 'root';
     $strPassword = "root";
-    $strDbname = 'users';
+    $strDbname = 'test_db';
     
 
     try {
@@ -96,7 +97,7 @@ function connectDB($aArrArgumentsContainer)
                 $strErrorMsg = '    - Check that the server\'s username and password is correct.';
                 break;
             case 1049:
-                $strErrorMsg = '    - Users table not found.';
+                $strErrorMsg = '    - Database not found.';
                 break;
             default:
                 $strErrorMsg = '    - Something went wrong with the database connection.';
@@ -115,18 +116,20 @@ function connectDB($aArrArgumentsContainer)
 function createTable($aConnection)
 {
     // sql to create table
-    $sql = "CREATE TABLE users (
+    $sql = "DROP TABLE IF EXISTS users;
+        CREATE TABLE users (
         id INT(6) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(30) NOT NULL,
-        surname VARCHAR(30) NOT NULL,
-        email VARCHAR(50) UNIQUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )";
+        name VARCHAR(50) NOT NULL,
+        surname VARCHAR(50) NOT NULL,
+        email VARCHAR(100) UNIQUE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+    ";
       
     // use exec() because no results are returned
     $aConnection->exec($sql);
     
     fwrite(STDOUT, 'User table created successfully');
+    exit;
 }
 // Validate and Insert data
 
@@ -258,9 +261,7 @@ function showHelpMenu()
     
     • --dry_run – this will be used with the --file directive to perform a test run without updating the database
 
-    • --create_table – create the users table. This will fail to execute if table is already existing.
-
-    • --drop_table – delete the users table. Use with extreme caution. Data deleted will no longer be available.  
+    • --create_table – create the users table. This will drop the table if it exists.
     
     Database Connection [required]
 
