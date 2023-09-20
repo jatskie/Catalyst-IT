@@ -46,7 +46,7 @@ if (count($arrArguments) == 0)
 $conn = connectDB($arrArgumentsContainer);
 
 while ($strArg = array_shift($arrArguments))
-{
+{   
     switch ($strArg)
     {
         case '--file':            
@@ -67,7 +67,6 @@ while ($strArg = array_shift($arrArguments))
             break;
         default:
             $arrInvalidArg[] = $strArg;
-            $boolInvalidCommandFound = true;
             break;
     }
 
@@ -75,6 +74,22 @@ while ($strArg = array_shift($arrArguments))
     if ($strArg == null)
     {        
         break;
+    }
+}
+
+foreach ($arrInvalidArg as $intIndex => $strArg)
+{
+    switch(true)
+    {
+        case strpos($strArg, '-u'):
+        case strpos($strArg, '-p'):
+        case strpos($strArg, '-h'):
+        case strpos($strArg, '-db'):
+        case strpos($strArg, '.csv'):
+            break;
+        default:
+            $boolInvalidCommandFound = true;
+            break;
     }
 }
 
@@ -315,13 +330,14 @@ function processUsers($aArrArgumentsContainer)
             }
             else
             {
-                fwrite(STDOUT, 'File does not exist.');
-                return;
+                fwrite(STDOUT, "File does not exist.\r\n\r\n");
+                return false;
             }
         }
     }
 
-    fwrite(STDOUT, 'Please provide a file to be uploaded.');
+    fwrite(STDOUT, "Please provide a valid csv file to be uploaded.\r\n\r\n");
+    return false;
 }
 
 /**
@@ -409,7 +425,7 @@ function recHelp($aStrType = 'SHOW_HELP')
     switch($aStrType)
     {
         case 'INVALID_COMMAND':
-            $strMsg = 'Invalid command.';
+            $strMsg = 'Invalid command detected.';
             break;        
         case 'NO_DIRECTIVES':
             $strMsg = 'No directives found.';
