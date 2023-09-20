@@ -50,7 +50,13 @@ while ($strArg = array_shift($arrArguments))
     {
         case '--file':            
             // process the csv
-            return processUsers($arrArgumentsContainer);
+            $mixUserData = processUsers($arrArgumentsContainer);
+            if ($mixUserData)
+            {
+                // insert to database
+                addUsers($mixUserData['valid'], $conn);
+                showResult($mixUserData['valid'], $mixUserData['invalid'], $mixUserData['invalid_line_numbers']);
+            }
             break;
         case '--help':
             return showHelpMenu();
@@ -70,7 +76,10 @@ while ($strArg = array_shift($arrArguments))
     }
 }
 
-// Make a database connection
+/**
+ * Make a database connection
+ * 
+ **/
 function connectDB($aArrArgumentsContainer)
 {
     $strServerName = 'localhost';
@@ -112,7 +121,11 @@ function connectDB($aArrArgumentsContainer)
         exit;
     }
 }
-// Create user table
+
+/**
+ * Create user table
+ * 
+ **/
 function createTable($aConnection)
 {
     // sql to create table
@@ -131,15 +144,55 @@ function createTable($aConnection)
     fwrite(STDOUT, 'User table created successfully');
     exit;
 }
-// Validate and Insert data
 
-// Get and parse csv file
+/**
+ * Validate and Insert data
+ * 
+ **/ 
+function addUsers($aArrUserData, $aConnection)
+{
+    $sql = $aConnection->prepare("INSERT INTO users (name, surname, email) VALUES (?,?,?)");
+    
+    try {
+        $aConnection->beginTransaction();
+
+        foreach ($aArrUserData as $row)
+        {
+            $sql->execute($row);
+        }
+
+        $aConnection->commit();
+
+    } catch (PDOException $e) {
+        $aConnection->rollback();
+        switch($e->errorInfo[1])
+        {
+            case 1062:
+                $strErrorMsg = "Duplicate emails found. Some users may already be in the database. Please check your CSV file. \r\n\r\n";
+                break;
+            case 1146:
+            default:
+                $strErrorMsg = "User table does not exists. \r\n\r\n";
+                break;
+        }
+
+        fwrite(STDOUT, $strErrorMsg);
+        recHelp('SHOW_HELP');
+        exit;
+    }
+}
+
+/**
+ * Get and parse csv file
+ * 
+ **/
 function processUsers($aArrArgumentsContainer)
 {
     $arrUsers = array();
     $arrInvalidData = array();
     $arrLineNumber = array();
-    $boolIsDryRun = in_array('--dry_run', $aArrArgumentsContainer);
+    $arrEmailList = array();
+    $boolIsDryRun = in_array('--dry_run', $aArrArgumentsContainer, true);
 
     // find the csv file in the arguments
     foreach ($aArrArgumentsContainer as $intIndex => $strValue) 
@@ -161,16 +214,27 @@ function processUsers($aArrArgumentsContainer)
                         continue;
                     }
                     
-                    $mixData = processData($line);
+                    $mixData = processCsv($line);
+                    $strErrorMsg = ' (Invalid email)';
                     if ($mixData)
                     {
-                        $arrUsers[] = $mixData;
+                        if (in_array($mixData[2], $arrEmailList))
+                        {
+                            $strErrorMsg = ' (Duplicate Entry)';
+                            goto invalid;
+                        }
+                        else
+                        {
+                            $arrUsers[] = $mixData;
+                            $arrEmailList[] = $mixData[2];
+                        }
                     }
                     else
                     {
+                        invalid:
                         $arrInvalidData[] = $line;
                         // Adding 1 because of zero-index
-                        $arrLineNumber[] = ($intLineCtr + 1);
+                        $arrLineNumber[] = ($intLineCtr + 1) . $strErrorMsg;
                     }
 
                     $intLineCtr++;
@@ -181,24 +245,16 @@ function processUsers($aArrArgumentsContainer)
                 // check if this is a dry_run
                 if ($boolIsDryRun)
                 {
-                    $intValidData = count($arrUsers);
-                    $intInvalidData = count($arrInvalidData);
-                    $strCsvLineNumber = implode(', ', $arrLineNumber);
-
-                    $strResult = "
-                        Processing Finished
-                        ---------------------------------------------
-                        Valid Data: $intValidData
-                        Invalid Data: $intInvalidData
-                            Check csv line/s: $strCsvLineNumber
-                    ";
-                    fwrite(STDOUT, $strResult);
-                    return;
+                    showResult($arrUsers, $arrInvalidData, $arrLineNumber);
+                    return false;
                 }
                 
                 // 
-
-                return;
+                return [
+                    'valid' => $arrUsers,
+                    'invalid' => $arrInvalidData,
+                    'invalid_line_numbers' => $arrLineNumber
+                ];
             }
             else
             {
@@ -218,8 +274,9 @@ function processUsers($aArrArgumentsContainer)
  * @return processed array or false if email is invalid
  *
  */
-function processData($aArrCsvLine)
+function processCsv($aArrCsvLine)
 {
+    // Csv row invalid
     if (count($aArrCsvLine) > 3)
     {
         return false;
@@ -233,6 +290,7 @@ function processData($aArrCsvLine)
         // email column
         if ($intIndex == 2)
         {
+            $strValue = filter_var($strValue, FILTER_SANITIZE_EMAIL);
             $boolIsEmailValid = filter_var($strValue, FILTER_VALIDATE_EMAIL);
 
             if (false == $boolIsEmailValid)
@@ -242,6 +300,7 @@ function processData($aArrCsvLine)
             else
             {
                 $aArrCsvLine[$intIndex] = strtolower($strValue);
+                continue;
             }
         }
 
@@ -252,7 +311,10 @@ function processData($aArrCsvLine)
     return $aArrCsvLine;
 }
 
-// Display Help Menu
+/**
+ * Display Help Menu
+ * 
+ **/
 function showHelpMenu()
 {
     $strDirectives = "
@@ -277,7 +339,10 @@ function showHelpMenu()
     fwrite(STDOUT, $strDirectives);
 }
 
-// Recommend help when issues are found
+/**
+ * Recommend help when issues are found
+ * 
+ **/
 function recHelp($aStrType = 'NO_DIRECTIVES')
 {
     $strMsg = '';
@@ -294,3 +359,24 @@ function recHelp($aStrType = 'NO_DIRECTIVES')
 
     fwrite(STDOUT, $strMsg . "\r\n\r\n");
 } 
+
+/**
+ * Display results
+ * 
+ */
+function showResult($aArrUsers, $aArrInvalidData, $aArrLineNumber)
+{
+    $intValidData = count($aArrUsers);
+    $intInvalidData = count($aArrInvalidData);
+    $strCsvLineNumber = implode(', ', $aArrLineNumber);
+
+    $strResult = "
+        Processing Finished
+        ---------------------------------------------
+        Valid Data: $intValidData
+        Invalid Data: $intInvalidData
+            Check csv line/s: $strCsvLineNumber
+    ";
+    fwrite(STDOUT, $strResult);
+    exit;
+}
