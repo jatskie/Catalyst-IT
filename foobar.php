@@ -9,17 +9,17 @@ while ($intCtr <= 100)
     $intModuloThree = $intCtr % 3;
     $intModuloFive = $intCtr % 5;
 
-    if ($intModuloThree == 0 && $intModuloFive != 0)
+    if ($intModuloThree == 0 && $intModuloFive == 0)
+    {
+        $arrProcessedData[] = 'foobar';
+    }
+    else if ($intModuloThree == 0)
     {
         $arrProcessedData[] = 'foo';
     }
-    else if ($intModuloFive == 0  && $intModuloThree != 0)
+    else if ($intModuloFive == 0)
     {
         $arrProcessedData[] = 'bar';
-    }
-    else if ($intModuloThree == 0 && $intModuloFive == 0)
-    {
-        $arrProcessedData[] = 'foobar';
     }
     else
     {

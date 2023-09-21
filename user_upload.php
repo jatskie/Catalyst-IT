@@ -36,66 +36,52 @@ $arrArguments = $arrArgumentsContainer = $argv;
 $arrInvalidArg = array();
 $boolInvalidCommandFound = false;
 
-if (count($arrArguments) == 0)
+$shortopts  = "";
+$shortopts .= "u::"; // Optional value
+$shortopts .= "p::"; // Optional value
+$shortopts .= "h::"; // Optional value
+$shortopts .= "d::"; // Optional value
+
+$longopts  = array(
+    "file:",     // Required value
+    "dry_run",   // No value
+    "create_table",   // No value
+    "help",           // No value
+);
+
+$arrOptions = getopt($shortopts, $longopts);
+
+if (count($arrOptions) == 0)
 {
     recHelp('NO_DIRECTIVES');
     exit;
 }
 
-// Initiate the database connection
-$conn = connectDB($arrArgumentsContainer);
-
-while ($strArg = array_shift($arrArguments))
-{   
-    switch ($strArg)
+foreach ($arrOptions as $strKey => $mixValue)
+{
+    switch ($strKey)
     {
-        case '--file':            
+        case 'file':
             // process the csv
             $mixUserData = processUsers($arrArgumentsContainer);
             if ($mixUserData)
             {
+                // Initiate the database connection
+                $conn = connectDB($arrArgumentsContainer);
                 // insert to database
                 addUsers($mixUserData['valid'], $conn);
                 showResult($mixUserData['valid'], $mixUserData['invalid'], $mixUserData['invalid_line_numbers']);
             }
-            break;
-        case '--help':
-            return showHelpMenu();
-            break;
-        case '--create_table':
+            exit;
+        case 'create_table':
+            $conn = connectDB($arrArgumentsContainer);
             return createTable($conn);
             break;
+        case 'help':
         default:
-            $arrInvalidArg[] = $strArg;
-            break;
+            showHelpMenu();
+            exit;
     }
-
-    // no more arguments exit loop
-    if ($strArg == null)
-    {        
-        break;
-    }
-}
-
-foreach ($arrInvalidArg as $intIndex => $strArg)
-{
-    switch(true)
-    {
-        case strpos($strArg, '-u'):
-        case strpos($strArg, '-p'):
-        case strpos($strArg, '-h'):
-        case strpos($strArg, '-db'):
-        case strpos($strArg, '.csv'):
-            break;
-        default:
-            $boolInvalidCommandFound = true;
-            break;
-    }
-}
-
-if ($boolInvalidCommandFound)
-{
-    recHelp('INVALID_COMMAND');
 }
 
 /**
@@ -293,7 +279,8 @@ function processUsers($aArrArgumentsContainer)
                         if (in_array($mixData[2], $arrEmailList))
                         {
                             $strErrorMsg = ' (Duplicate Entry)';
-                            goto invalid;
+                            $arrInvalidData[] = $line;
+                            $arrLineNumber[] = ($intLineCtr + 1) . $strErrorMsg;
                         }
                         else
                         {
@@ -303,9 +290,7 @@ function processUsers($aArrArgumentsContainer)
                     }
                     else
                     {
-                        invalid:
                         $arrInvalidData[] = $line;
-                        // Adding 1 because of zero-index
                         $arrLineNumber[] = ($intLineCtr + 1) . $strErrorMsg;
                     }
 
